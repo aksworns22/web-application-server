@@ -2,14 +2,17 @@ package webserver;
 
 import java.io.*;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Map;
 
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static util.HttpRequestUtils.parseHeader;
 import static util.HttpRequestUtils.parseQueryString;
+import static util.IOUtils.readData;
+
 import util.RequestLine;
 
 public class RequestHandler extends Thread {
@@ -26,17 +29,18 @@ public class RequestHandler extends Thread {
                 connection.getPort());
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
-            BufferedReader rawRequestHeader = new BufferedReader(new InputStreamReader(in));
-            RequestLine requestLine = new RequestLine(rawRequestHeader.readLine());
+            BufferedReader rawRequest = new BufferedReader(new InputStreamReader(in));
+            RequestLine requestLine = new RequestLine(rawRequest.readLine());
             DataOutputStream dos = new DataOutputStream(out);
-            if (requestLine.getMethod().equals("GET") && requestLine.getPath().startsWith("user/create")) {
-                String rawQuery = requestLine.getPath().replace("user/create?", "");
-                Map<String, String> query = parseQueryString(rawQuery);
-                User user = new User(query.get("userId"), query.get("password"), query.get("name"), query.get("email"));
+            if (requestLine.getMethod().equals("POST") && requestLine.getPath().startsWith("user/create")) {
+                String rawContentLength;
+                while (!(rawContentLength = rawRequest.readLine()).startsWith("Content-Length:"));
+                while (!(rawRequest.readLine().equals(""))) ;
+                Integer contentLength = Integer.parseInt(parseHeader(rawContentLength).getValue());
+                String rawRequestBody = readData(rawRequest, contentLength);
+                Map<String, String> requestBody = parseQueryString(rawRequestBody);
+                User user = new User(requestBody.get("userId"), requestBody.get("password"), requestBody.get("name"), requestBody.get("email"));
                 log.debug("New {} has been created", user);
-                byte[] body = user.toString().getBytes(StandardCharsets.UTF_8);
-                response200Header(dos, body.length);
-                responseBody(dos, body);
                 return;
             }
             byte[] body = Files.readAllBytes(new File(String.format("./webapp/%s", requestLine.getPath())).toPath());
