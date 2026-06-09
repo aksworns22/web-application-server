@@ -41,6 +41,7 @@ public class RequestHandler extends Thread {
                 Map<String, String> requestBody = parseQueryString(rawRequestBody);
                 User user = new User(requestBody.get("userId"), requestBody.get("password"), requestBody.get("name"), requestBody.get("email"));
                 log.debug("New {} has been created", user);
+                response302Header(dos);
                 return;
             }
             byte[] body = Files.readAllBytes(new File(String.format("./webapp/%s", requestLine.getPath())).toPath());
@@ -56,6 +57,17 @@ public class RequestHandler extends Thread {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void response302Header(DataOutputStream dos) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found\r\n");
+            dos.writeBytes("Location: /index.html\r\n");
+            dos.writeBytes("Content-Length: 0\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
